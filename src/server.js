@@ -4,9 +4,11 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyCookie from '@fastify/cookie';
 import postgres from 'postgres';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Run all SQL migrations in order (idempotent — use IF NOT EXISTS in your SQL).
 async function migrate(sql) {
@@ -40,6 +42,8 @@ async function registerRoutes(app) {
 
 export async function buildApp(opts = {}) {
   const app = Fastify({ logger: opts.logger ?? true });
+
+  await app.register(fastifyCookie);
 
   // GOTCHA (baked-in lesson): decorateReply MUST be true so reply.sendFile works.
   await app.register(fastifyStatic, {
@@ -88,7 +92,10 @@ async function main() {
   console.log(`taskflow listening on ${host}:${port}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run the server when this file is the entry point (not when imported by tests).
+if (process.argv[1] === __filename) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

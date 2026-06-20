@@ -1,9 +1,595 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TaskFlow</title></head>
-<body style="font-family:system-ui;max-width:680px;margin:4rem auto;padding:0 1rem">
-<h1>TaskFlow</h1>
-<p>VertexAgents complex test — team task manager (auth+projects+tasks+board+comments+dashboard).</p>
-<p><a href="/api/health">/api/health</a></p>
-</body></html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TaskFlow</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f9fa; --surface: #fff; --border: #dee2e6; --text: #212529;
+  --muted: #6c757d; --primary: #0d6efd; --primary-d: #0b5ed7;
+  --danger: #dc3545; --success: #198754; --warn: #fd7e14;
+  --radius: 6px; --shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+body { font: 14px/1.5 system-ui,sans-serif; background: var(--bg); color: var(--text); }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; border: none; border-radius: var(--radius); padding: .4rem .9rem;
+  font: inherit; background: var(--primary); color: #fff; transition: background .15s; }
+button:hover { background: var(--primary-d); }
+button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+button.secondary:hover { background: var(--bg); }
+button.danger { background: var(--danger); }
+button.sm { padding: .25rem .6rem; font-size: 12px; }
+input, select, textarea {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: .45rem .6rem;
+  font: inherit; width: 100%; background: var(--surface);
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); }
+.form-row { margin-bottom: .75rem; }
+.form-row label { display: block; font-weight: 600; margin-bottom: .25rem; font-size: 13px; }
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; }
+.badge { display: inline-block; padding: .15rem .45rem; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge-todo    { background: #e9ecef; color: #495057; }
+.badge-doing   { background: #cfe2ff; color: #084298; }
+.badge-done    { background: #d1e7dd; color: #0a3622; }
+.badge-low     { background: #e9ecef; color: #495057; }
+.badge-med     { background: #fff3cd; color: #664d03; }
+.badge-high    { background: #f8d7da; color: #842029; }
+nav { display: flex; align-items: center; gap: .75rem; padding: .6rem 1.25rem;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+nav .brand { font-weight: 700; font-size: 16px; color: var(--text); margin-right: auto; }
+.page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: .75rem; }
+.error-msg { color: var(--danger); font-size: 13px; margin-top: .5rem; }
+/* Auth */
+.auth-wrap { max-width: 380px; margin: 5rem auto; }
+.auth-wrap h1 { font-size: 24px; margin-bottom: 1.25rem; text-align: center; }
+/* Projects */
+.projects-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 1rem; }
+.proj-card { cursor: pointer; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); transition: box-shadow .15s; }
+.proj-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.proj-card h3 { font-size: 15px; margin-bottom: .3rem; }
+.proj-meta { color: var(--muted); font-size: 12px; margin-top: .5rem; }
+/* Board */
+.board { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; }
+.board-col { min-width: 260px; flex: 1; }
+.board-col h3 { font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; margin-bottom: .6rem; padding: .4rem .5rem;
+  border-radius: var(--radius); background: var(--bg); }
+.task-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .65rem .75rem; margin-bottom: .5rem; cursor: pointer; transition: box-shadow .15s; }
+.task-card:hover { box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+.task-card h4 { font-size: 13px; margin-bottom: .35rem; }
+.task-card .meta { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+/* List */
+.list-controls { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.list-controls select { width: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--surface);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+th, td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+th { font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f8f9fa; cursor: pointer; }
+/* Dashboard */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .9rem 1rem; text-align: center; }
+.stat-num { font-size: 28px; font-weight: 700; }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: .15rem; }
+.activity-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.activity-item { padding: .55rem .9rem; border-bottom: 1px solid var(--border); font-size: 13px; }
+.activity-item:last-child { border-bottom: none; }
+.activity-item .ts { float: right; color: var(--muted); font-size: 11px; }
+/* Modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100;
+  display: flex; align-items: flex-start; justify-content: center; padding: 4rem 1rem; overflow-y: auto; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 1.5rem;
+  width: 100%; max-width: 580px; box-shadow: 0 8px 32px rgba(0,0,0,.15); }
+.modal h2 { font-size: 17px; margin-bottom: 1rem; }
+.modal-footer { display: flex; justify-content: space-between; margin-top: 1rem; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.tab { padding: .45rem 1rem; cursor: pointer; border-bottom: 2px solid transparent;
+  font-size: 13px; color: var(--muted); transition: color .15s; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.view-btns { display: flex; gap: .25rem; }
+.view-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.view-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.hidden { display: none !important; }
+.flex { display: flex; gap: .5rem; align-items: center; }
+.due-overdue { color: var(--danger); font-weight: 600; }
+.comments-list { margin-top: 1rem; }
+.comment { background: var(--bg); border-radius: var(--radius); padding: .5rem .75rem; margin-bottom: .5rem; font-size: 13px; }
+.comment strong { font-weight: 600; }
+.comment .ts { color: var(--muted); font-size: 11px; float: right; }
+</style>
+</head>
+<body>
+
+<nav id="navbar" class="hidden">
+  <span class="brand">TaskFlow</span>
+  <span id="nav-user" style="color:var(--muted);font-size:13px"></span>
+  <button class="secondary sm" onclick="navigate('projects')">Projects</button>
+  <button class="secondary sm" onclick="logout()">Logout</button>
+</nav>
+
+<div id="app"></div>
+
+<script type="module">
+/* ── helpers ─────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const app = $('app');
+const navbar = $('navbar');
+
+let currentUser = null;
+let currentProject = null;
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString();
+}
+
+function isOverdue(due) {
+  if (!due) return false;
+  return new Date(due) < new Date(new Date().toDateString());
+}
+
+function timeSince(d) {
+  const s = Math.floor((Date.now() - new Date(d)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+/* ── routing ──────────────────────────────────────────────── */
+function navigate(view, ...args) {
+  routes[view]?.(...args);
+}
+
+/* ── auth views ───────────────────────────────────────────── */
+function showLogin(msg = '') {
+  navbar.classList.add('hidden');
+  app.innerHTML = `
+    <div class="auth-wrap">
+      <h1>TaskFlow</h1>
+      <div class="card">
+        <div class="form-row"><label>Email</label><input id="l-email" type="email" placeholder="you@example.com"></div>
+        <div class="form-row"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
+        <button style="width:100%" onclick="doLogin()">Sign in</button>
+        <p style="text-align:center;margin-top:.75rem;font-size:13px">
+          No account? <a href="#" onclick="navigate('signup')">Sign up</a>
+        </p>
+        <p class="error-msg" id="l-err">${msg}</p>
+      </div>
+    </div>`;
+}
+
+function showSignup() {
+  navbar.classList.add('hidden');
+  app.innerHTML = `
+    <div class="auth-wrap">
+      <h1>TaskFlow</h1>
+      <div class="card">
+        <div class="form-row"><label>Name</label><input id="s-name" placeholder="Your name"></div>
+        <div class="form-row"><label>Email</label><input id="s-email" type="email" placeholder="you@example.com"></div>
+        <div class="form-row"><label>Password</label><input id="s-pass" type="password" placeholder="min 6 chars"></div>
+        <button style="width:100%" onclick="doSignup()">Create account</button>
+        <p style="text-align:center;margin-top:.75rem;font-size:13px">
+          Already have one? <a href="#" onclick="navigate('login')">Sign in</a>
+        </p>
+        <p class="error-msg" id="s-err"></p>
+      </div>
+    </div>`;
+}
+
+window.doLogin = async () => {
+  const email = $('l-email').value, password = $('l-pass').value;
+  try {
+    const { user } = await api('POST', '/api/auth/login', { email, password });
+    currentUser = user;
+    navigate('projects');
+  } catch(e) { $('l-err').textContent = e.message; }
+};
+
+window.doSignup = async () => {
+  const name = $('s-name').value, email = $('s-email').value, password = $('s-pass').value;
+  try {
+    const { user } = await api('POST', '/api/auth/signup', { name, email, password });
+    currentUser = user;
+    navigate('projects');
+  } catch(e) { $('s-err').textContent = e.message; }
+};
+
+window.logout = async () => {
+  await api('POST', '/api/auth/logout');
+  currentUser = null;
+  navigate('login');
+};
+
+/* ── projects view ────────────────────────────────────────── */
+async function showProjects() {
+  navbar.classList.remove('hidden');
+  $('nav-user').textContent = currentUser?.name || currentUser?.email || '';
+
+  app.innerHTML = `
+    <div class="page">
+      <div class="page-title">
+        Projects
+        <button onclick="showNewProject()" class="sm">+ New</button>
+      </div>
+      <div id="proj-list">Loading…</div>
+    </div>`;
+
+  const projects = await api('GET', '/api/projects');
+  const list = $('proj-list');
+  if (!projects.length) {
+    list.innerHTML = '<p style="color:var(--muted)">No projects yet. Create one to get started.</p>';
+    return;
+  }
+  list.innerHTML = `<div class="projects-grid">${projects.map(p => `
+    <div class="proj-card" onclick="navigate('project',${p.id})">
+      <h3>${esc(p.name)}</h3>
+      <p style="color:var(--muted);font-size:13px">${esc(p.description||'')}</p>
+      <div class="proj-meta">
+        <span class="badge badge-doing">${p.doing_count??0} doing</span>
+        <span class="badge badge-todo">${p.open_count??0} open</span>
+        <span class="badge badge-done">${p.done_count??0} done</span>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+window.showNewProject = () => {
+  showModal(`
+    <h2>New Project</h2>
+    <div class="form-row"><label>Name</label><input id="np-name" placeholder="Project name"></div>
+    <div class="form-row"><label>Description</label><textarea id="np-desc" rows="2" placeholder="Optional…"></textarea></div>
+    <p class="error-msg" id="np-err"></p>
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeModal()">Cancel</button>
+      <button onclick="createProject()">Create</button>
+    </div>`);
+};
+
+window.createProject = async () => {
+  const name = $('np-name').value.trim();
+  if (!name) { $('np-err').textContent = 'Name is required'; return; }
+  try {
+    await api('POST', '/api/projects', { name, description: $('np-desc').value });
+    closeModal();
+    navigate('projects');
+  } catch(e) { $('np-err').textContent = e.message; }
+};
+
+/* ── project / task views ─────────────────────────────────── */
+let projectView = 'board';
+
+async function showProject(id) {
+  navbar.classList.remove('hidden');
+  const project = await api('GET', `/api/projects/${id}`);
+  currentProject = project;
+
+  app.innerHTML = `
+    <div class="page">
+      <div class="page-title">
+        <a href="#" onclick="navigate('projects')" style="color:var(--muted);font-size:14px;font-weight:400">Projects</a>
+        / ${esc(project.name)}
+        <div class="view-btns" style="margin-left:auto">
+          <button class="view-btn sm ${projectView==='board'?'active':''}" onclick="setView('board')">Board</button>
+          <button class="view-btn sm ${projectView==='list'?'active':''}" onclick="setView('list')">List</button>
+          <button class="view-btn sm ${projectView==='dashboard'?'active':''}" onclick="setView('dashboard')">Dashboard</button>
+        </div>
+        <button class="sm" onclick="showNewTask(${id})">+ Task</button>
+      </div>
+      <div id="task-content"></div>
+    </div>`;
+
+  renderTaskView(id);
+}
+
+window.setView = (v) => {
+  projectView = v;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTaskView(currentProject.id);
+};
+
+async function renderTaskView(id) {
+  const el = $('task-content');
+  el.innerHTML = 'Loading…';
+  if (projectView === 'board') await renderBoard(id, el);
+  else if (projectView === 'list') await renderList(id, el);
+  else await renderDashboard(id, el);
+}
+
+async function renderBoard(id, el) {
+  const board = await api('GET', `/api/projects/${id}/board`);
+  const col = (title, key, tasks) => `
+    <div class="board-col">
+      <h3>${title} <span style="font-weight:400;color:var(--muted)">${tasks.length}</span></h3>
+      ${tasks.map(t => taskCard(t)).join('') || '<p style="color:var(--muted);font-size:12px;padding:.5rem">Empty</p>'}
+    </div>`;
+  el.innerHTML = `<div class="board">
+    ${col('To Do','todo',board.todo)}
+    ${col('In Progress','doing',board.doing)}
+    ${col('Done','done',board.done)}
+  </div>`;
+}
+
+async function renderList(id, el) {
+  const params = new URLSearchParams(window.listFilters || {});
+  const tasks = await api('GET', `/api/projects/${id}/tasks?${params}`);
+  el.innerHTML = `
+    <div class="list-controls">
+      <select id="f-status" onchange="applyFilter(${id})">
+        <option value="">All statuses</option>
+        <option value="todo">To Do</option>
+        <option value="doing">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+      <select id="f-sort" onchange="applyFilter(${id})">
+        <option value="created_at">Newest</option>
+        <option value="due_date">Due date</option>
+        <option value="priority">Priority</option>
+        <option value="updated_at">Last updated</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th></tr></thead>
+      <tbody>${tasks.map(t => `
+        <tr onclick="showTaskDetail(${id},${t.id})">
+          <td>${esc(t.title)}</td>
+          <td><span class="badge badge-${t.status}">${t.status}</span></td>
+          <td><span class="badge badge-${t.priority}">${t.priority}</span></td>
+          <td>${esc(t.assignee_name||'—')}</td>
+          <td class="${isOverdue(t.due_date)?'due-overdue':''}">${fmtDate(t.due_date)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  if (window.listFilters?.status) $('f-status').value = window.listFilters.status;
+  if (window.listFilters?.sort)   $('f-sort').value   = window.listFilters.sort;
+}
+
+window.applyFilter = (id) => {
+  window.listFilters = {
+    status: $('f-status')?.value || undefined,
+    sort:   $('f-sort')?.value   || undefined,
+  };
+  Object.keys(window.listFilters).forEach(k => !window.listFilters[k] && delete window.listFilters[k]);
+  renderList(id, $('task-content'));
+};
+
+async function renderDashboard(id, el) {
+  const dash = await api('GET', `/api/projects/${id}/dashboard`);
+  const { counts, recent_activity } = dash;
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num">${counts.open}</div><div class="stat-label">Open tasks</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--success)">${counts.done}</div><div class="stat-label">Done</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--warn)">${counts.overdue}</div><div class="stat-label">Overdue</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${counts.high_priority}</div><div class="stat-label">High priority open</div></div>
+      <div class="stat-card"><div class="stat-num">${counts.doing}</div><div class="stat-label">In Progress</div></div>
+      <div class="stat-card"><div class="stat-num">${counts.todo}</div><div class="stat-label">To Do</div></div>
+    </div>
+    <h3 style="margin-bottom:.75rem;font-size:14px">Recent Activity</h3>
+    <div class="activity-list">
+      ${recent_activity.length
+        ? recent_activity.map(a => `
+          <div class="activity-item">
+            <span class="ts">${timeSince(a.created_at)}</span>
+            <strong>${esc(a.actor_name||'System')}</strong>
+            ${esc(a.action.replace('_',' '))}
+            <em>${esc(a.entity_type)} #${a.entity_id}</em>
+          </div>`).join('')
+        : '<div class="activity-item" style="color:var(--muted)">No activity yet.</div>'}
+    </div>`;
+}
+
+function taskCard(t) {
+  return `
+    <div class="task-card" onclick="showTaskDetail(${currentProject.id},${t.id})">
+      <h4>${esc(t.title)}</h4>
+      <div class="meta">
+        <span class="badge badge-${t.priority}">${t.priority}</span>
+        ${t.assignee_name ? `<span style="font-size:11px;color:var(--muted)">${esc(t.assignee_name)}</span>` : ''}
+        ${t.due_date ? `<span class="${isOverdue(t.due_date)?'due-overdue':''}" style="font-size:11px">📅 ${fmtDate(t.due_date)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ── task detail modal ────────────────────────────────────── */
+async function showTaskDetail(projectId, taskId) {
+  const task = await api('GET', `/api/projects/${projectId}/tasks/${taskId}`);
+  const comments = await api('GET', `/api/tasks/${taskId}/comments`);
+
+  showModal(`
+    <h2 id="td-title-display">${esc(task.title)}</h2>
+    <div class="tabs">
+      <span class="tab active" onclick="switchTab('details')">Details</span>
+      <span class="tab" onclick="switchTab('comments')">Comments (${comments.length})</span>
+    </div>
+    <div id="tab-details">
+      <div class="form-row"><label>Title</label><input id="td-title" value="${esc(task.title)}"></div>
+      <div class="form-row"><label>Description</label><textarea id="td-desc" rows="3">${esc(task.description||'')}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div class="form-row">
+          <label>Status</label>
+          <select id="td-status">
+            <option ${task.status==='todo'?'selected':''}>todo</option>
+            <option ${task.status==='doing'?'selected':''}>doing</option>
+            <option ${task.status==='done'?'selected':''}>done</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Priority</label>
+          <select id="td-priority">
+            <option ${task.priority==='low'?'selected':''}>low</option>
+            <option ${task.priority==='med'?'selected':''}>med</option>
+            <option ${task.priority==='high'?'selected':''}>high</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row"><label>Due date</label><input id="td-due" type="date" value="${task.due_date||''}"></div>
+      <p class="error-msg" id="td-err"></p>
+    </div>
+    <div id="tab-comments" class="hidden">
+      <div class="comments-list" id="comment-list">
+        ${comments.map(c => `
+          <div class="comment">
+            <span class="ts">${timeSince(c.created_at)}</span>
+            <strong>${esc(c.author_name||c.author_email)}</strong>: ${esc(c.body)}
+          </div>`).join('') || '<p style="color:var(--muted);font-size:13px">No comments yet.</p>'}
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <textarea id="new-comment" rows="2" placeholder="Add a comment…"></textarea>
+      </div>
+      <button class="sm" onclick="postComment(${taskId})">Post</button>
+    </div>
+    <div class="modal-footer">
+      <button class="danger sm" onclick="deleteTask(${projectId},${taskId})">Delete</button>
+      <div class="flex">
+        <button class="secondary sm" onclick="closeModal()">Cancel</button>
+        <button class="sm" onclick="saveTask(${projectId},${taskId})">Save</button>
+      </div>
+    </div>`);
+}
+
+window.switchTab = (tab) => {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  $('tab-details').classList.toggle('hidden', tab !== 'details');
+  $('tab-comments').classList.toggle('hidden', tab !== 'comments');
+};
+
+window.saveTask = async (projectId, taskId) => {
+  try {
+    await api('PATCH', `/api/projects/${projectId}/tasks/${taskId}`, {
+      title: $('td-title').value,
+      description: $('td-desc').value,
+      status: $('td-status').value,
+      priority: $('td-priority').value,
+      due_date: $('td-due').value || null,
+    });
+    closeModal();
+    renderTaskView(projectId);
+  } catch(e) { $('td-err').textContent = e.message; }
+};
+
+window.deleteTask = async (projectId, taskId) => {
+  if (!confirm('Delete this task?')) return;
+  await api('DELETE', `/api/projects/${projectId}/tasks/${taskId}`);
+  closeModal();
+  renderTaskView(projectId);
+};
+
+window.postComment = async (taskId) => {
+  const body = $('new-comment').value.trim();
+  if (!body) return;
+  const comment = await api('POST', `/api/tasks/${taskId}/comments`, { body });
+  $('new-comment').value = '';
+  const list = $('comment-list');
+  list.insertAdjacentHTML('beforeend', `
+    <div class="comment">
+      <span class="ts">just now</span>
+      <strong>${esc(comment.author_name||currentUser?.name||'You')}</strong>: ${esc(comment.body)}
+    </div>`);
+};
+
+/* ── new task modal ───────────────────────────────────────── */
+window.showNewTask = (projectId) => {
+  showModal(`
+    <h2>New Task</h2>
+    <div class="form-row"><label>Title</label><input id="nt-title" placeholder="Task title"></div>
+    <div class="form-row"><label>Description</label><textarea id="nt-desc" rows="2"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <div class="form-row">
+        <label>Status</label>
+        <select id="nt-status">
+          <option>todo</option><option>doing</option><option>done</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Priority</label>
+        <select id="nt-priority">
+          <option>low</option><option selected>med</option><option>high</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>Due date</label><input id="nt-due" type="date"></div>
+    <p class="error-msg" id="nt-err"></p>
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeModal()">Cancel</button>
+      <button onclick="createTask(${projectId})">Create</button>
+    </div>`);
+};
+
+window.createTask = async (projectId) => {
+  const title = $('nt-title').value.trim();
+  if (!title) { $('nt-err').textContent = 'Title is required'; return; }
+  try {
+    await api('POST', `/api/projects/${projectId}/tasks`, {
+      title,
+      description: $('nt-desc').value,
+      status: $('nt-status').value,
+      priority: $('nt-priority').value,
+      due_date: $('nt-due').value || null,
+    });
+    closeModal();
+    renderTaskView(projectId);
+  } catch(e) { $('nt-err').textContent = e.message; }
+};
+
+/* ── modal utility ────────────────────────────────────────── */
+function showModal(html) {
+  let bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'modal-bg';
+  bg.addEventListener('click', e => { if (e.target === bg) closeModal(); });
+  bg.innerHTML = `<div class="modal">${html}</div>`;
+  document.body.appendChild(bg);
+}
+
+window.closeModal = () => $('modal-bg')?.remove();
+
+/* ── escape ───────────────────────────────────────────────── */
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── route table ──────────────────────────────────────────── */
+const routes = {
+  login:     () => showLogin(),
+  signup:    () => showSignup(),
+  projects:  () => showProjects(),
+  project:   (id) => showProject(id),
+  dashboard: (id) => { projectView = 'dashboard'; showProject(id); },
+};
+
+/* ── boot ─────────────────────────────────────────────────── */
+(async () => {
+  try {
+    const { user } = await api('GET', '/api/auth/me');
+    currentUser = user;
+    navigate('projects');
+  } catch {
+    navigate('login');
+  }
+})();
+</script>
+</body>
+</html>
