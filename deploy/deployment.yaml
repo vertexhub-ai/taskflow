@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: taskflow
-          image: localhost:30500/taskflow/api:v1
+          image: localhost:30500/taskflow/api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -47,3 +47,11 @@ spec:
           resources:
             requests: { cpu: "50m", memory: "128Mi" }
             limits: { cpu: "500m", memory: "512Mi" }
+          volumeMounts:
+            - name: index-html
+              mountPath: /app/public/index.html
+              subPath: index.html
+      volumes:
+        - name: index-html
+          configMap:
+            name: taskflow-index-html
