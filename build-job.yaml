@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: build-taskflow-image
+  namespace: vertexagents-runtime
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: builder
+        image: quay.io/buildah/stable:latest
+        securityContext:
+          privileged: true
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          set -e
+          cd /tmp
+          git clone --depth 1 https://github.com/vertexhub-ai/taskflow.git src
+          cd src
+          buildah bud --tls-verify=false -t localhost:30500/taskflow/api:latest .
+          buildah push --tls-verify=false localhost:30500/taskflow/api:latest
