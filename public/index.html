@@ -581,6 +581,8 @@ const routes = {
   dashboard: (id) => { projectView = 'dashboard'; showProject(id); },
 };
 
+window.navigate = navigate;
+
 /* ── boot ─────────────────────────────────────────────────── */
 (async () => {
   try {
