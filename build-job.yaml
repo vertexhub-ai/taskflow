@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: taskflow-build
+  namespace: default
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      serviceAccountName: buildah-builder
+      containers:
+        - name: buildah
+          image: quay.io/buildah/stable:latest
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              cd /workspace
+              git clone https://github.com/vertexhub-ai/taskflow.git .
+              buildah bud -t localhost:30500/taskflow/api:latest .
+              buildah push localhost:30500/taskflow/api:latest
+              echo "Build and push completed"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: docker-sock
+              mountPath: /run/docker.sock
+          securityContext:
+            privileged: true
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: docker-sock
+          hostPath:
+            path: /run/docker.sock
+      restartPolicy: Never
